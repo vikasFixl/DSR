@@ -15,6 +15,14 @@ export class ApiError extends Error {
     return new ApiError(404, message);
   }
 
+  static unauthorized(message = "Unauthorized") {
+    return new ApiError(401, message);
+  }
+
+  static forbidden(message = "Forbidden") {
+    return new ApiError(403, message);
+  }
+
   static serviceUnavailable(message = "Service unavailable", details) {
     return new ApiError(503, message, { details });
   }

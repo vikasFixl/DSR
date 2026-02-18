@@ -73,6 +73,23 @@ export const enqueueEmailVerification = async ({ to, name, verificationLink }, o
   );
 };
 
+/**
+ * Enqueues email with OTP for verification (e.g. email verify).
+ * @param {{ to: string, name?: string, otp: string, purpose?: string }} params
+ * @param {object} opts
+ * @returns {Promise<import("bullmq").Job>}
+ */
+export const enqueueVerifyEmailOtp = async ({ to, name, otp, purpose = "email verification" }, opts = {}) => {
+  return enqueueTemplatedEmail(
+    {
+      to,
+      templateName: "otp",
+      templateArgs: [otp, name || "User", purpose]
+    },
+    opts
+  );
+};
+
 export const closeEmailQueue = async () => {
   if (emailQueue) {
     await emailQueue.close();

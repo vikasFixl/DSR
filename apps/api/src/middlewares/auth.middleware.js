@@ -16,11 +16,7 @@ export const authenticate = () => {
       }
 
       const payload = verifyAccessToken(accessToken);
-      req.user = {
-        id: String(payload.sub),
-        tokenId: payload.tokenId ? String(payload.tokenId) : undefined,
-        jti: payload.jti ? String(payload.jti) : undefined
-      };
+      req.user = { id: String(payload.sub) };
       return next();
     } catch (error) {
       logger.warn({ err: error }, "Authentication failed");

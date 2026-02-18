@@ -58,14 +58,11 @@ const UserSchema = new mongoose.Schema(
     lockedUntil: {
       type: Date,
       default: null
-    }
-,
-passwordChangedAt: {
-  type: Date,
-  default: null
-}
-,
-
+    },
+    passwordChangedAt: {
+      type: Date,
+      default: null
+    },
     emailVerified: {
       type: Boolean,
       default: false,
