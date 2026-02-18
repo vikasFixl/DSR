@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { User, UserSession } from "#db/models/index.js";
 import { ApiError } from "#api/utils/ApiError.js";
+import * as auditService from "#api/modules/audit/audit.service.js";
 import { logger } from "#api/utils/logger.js";
 import { config } from "#api/config/env.js";
 import { enqueueVerifyEmailOtp, enqueueForgotPasswordEmail } from "#infra/queue/email.queue.js";
@@ -99,6 +100,18 @@ export async function signup(input) {
   await setVerifyEmailOtp(String(user._id), otpHash);
 
   await enqueueVerifyEmailOtp({ to: email, name: user.name, otp, purpose: "email verification" });
+  await auditService
+    .log({
+      action: "AUTH.SIGNUP",
+      resourceType: "User",
+      resourceId: user._id,
+      userId: user._id,
+      tenantId: null,
+      ip: null,
+      userAgent: null,
+      metadata: { email }
+    })
+    .catch((err) => logger.warn({ err }, "Audit log failed"));
   logger.info({ userId: user._id, email }, "Signup completed, verification email queued");
   return { message: "Account created. Please verify your email." };
 }
@@ -204,6 +217,18 @@ export async function login(input, meta) {
       update.$set = { lockedUntil: new Date(Date.now() + LOCK_DURATION_MS) };
     }
     await User.updateOne({ _id: user._id }, update).then(() => {}).catch(() => {});
+    await auditService
+      .log({
+        action: "AUTH.FAILED_LOGIN",
+        resourceType: "User",
+        resourceId: user._id,
+        userId: user._id,
+        tenantId: null,
+        ip,
+        userAgent: meta?.userAgent ?? null,
+        metadata: { email }
+      })
+      .catch((err) => logger.warn({ err }, "Audit log failed"));
     throw ApiError.badRequest("Invalid credentials");
   }
 
@@ -268,6 +293,19 @@ export async function login(input, meta) {
       expiresAt
     });
   }
+
+  await auditService
+    .log({
+      action: "AUTH.LOGIN",
+      resourceType: "UserSession",
+      resourceId: null,
+      userId: user._id,
+      tenantId: null,
+      ip,
+      userAgent: meta?.userAgent ?? null,
+      metadata: { email }
+    })
+    .catch((err) => logger.warn({ err }, "Audit log failed"));
 
   const profile = {
     id: user._id,
@@ -378,11 +416,13 @@ export async function logout(refreshTokenFromCookie) {
     return;
   }
 
+  let userIdForAudit = null;
   try {
     const payload = verifyRefreshToken(refreshTokenFromCookie);
     const refreshId = payload.refreshId;
     const record = await getRefreshRecord(refreshId);
     if (record) {
+      userIdForAudit = record.userId;
       await deleteRefreshRecord(refreshId);
       await removeUserRefreshId(record.userId, refreshId);
       await UserSession.updateOne(
@@ -392,6 +432,18 @@ export async function logout(refreshTokenFromCookie) {
     }
   } catch {
     // ignore invalid token
+  }
+  if (userIdForAudit) {
+    await auditService
+      .log({
+        action: "AUTH.LOGOUT",
+        resourceType: "UserSession",
+        resourceId: null,
+        userId: userIdForAudit,
+        tenantId: null,
+        metadata: {}
+      })
+      .catch((err) => logger.warn({ err }, "Audit log failed"));
   }
   logger.info("Logout completed");
 }
@@ -409,6 +461,16 @@ export async function logoutAll(refreshTokenFromCookie) {
   try {
     const payload = verifyRefreshToken(refreshTokenFromCookie);
     await revokeAllSessionsForUser(payload.sub);
+    await auditService
+      .log({
+        action: "AUTH.LOGOUT_ALL",
+        resourceType: "UserSession",
+        resourceId: null,
+        userId: payload.sub,
+        tenantId: null,
+        metadata: {}
+      })
+      .catch((err) => logger.warn({ err }, "Audit log failed"));
     logger.info({ userId: payload.sub }, "Logout all completed");
   } catch {
     // ignore
@@ -431,6 +493,16 @@ export async function forgotPassword(input) {
   await setPasswordResetToken(token, String(user._id));
   const resetLink = `${config.app.publicUrl}/reset-password?token=${token}`;
   await enqueueForgotPasswordEmail({ to: email, name: user.name, resetLink });
+  await auditService
+    .log({
+      action: "AUTH.PASSWORD_RESET_REQUEST",
+      resourceType: "User",
+      resourceId: user._id,
+      userId: user._id,
+      tenantId: null,
+      metadata: { email }
+    })
+    .catch((err) => logger.warn({ err }, "Audit log failed"));
   logger.info({ userId: user._id, email }, "Password reset requested");
   return { message: "If an account exists, a password reset link was sent." };
 }
@@ -464,6 +536,16 @@ export async function resetPassword(input) {
   );
   await deletePasswordResetToken(input.token);
   await revokeAllSessionsForUser(userId);
+  await auditService
+    .log({
+      action: "AUTH.PASSWORD_RESET",
+      resourceType: "User",
+      resourceId: userId,
+      userId,
+      tenantId: null,
+      metadata: {}
+    })
+    .catch((err) => logger.warn({ err }, "Audit log failed"));
   logger.info({ userId }, "Password reset completed");
   return { message: "Password has been reset successfully." };
 }

@@ -389,6 +389,22 @@ export const pubsubChannels = Object.freeze({
     buildChannel({ env, scope: "t", tenantId, topic: "cache.invalidate", clusterTenantTag }),
   notifPush: ({ env, tenantId, clusterTenantTag = true }) =>
     buildChannel({ env, scope: "t", tenantId, topic: "notif.push", clusterTenantTag }),
+  /** {env}:pubsub:t:{tenantId}:audit.created */
+  auditCreated: ({ env, tenantId, clusterTenantTag = true }) =>
+    buildChannel({ env, scope: "t", tenantId, topic: "audit.created", clusterTenantTag }),
+  /** Pattern: {env}:pubsub:t:*:audit.created (subscribe to all tenants) */
+  auditCreatedPattern: ({ env }) => {
+    const effectiveEnv = normalizeEnv(env);
+    return `${effectiveEnv}:pubsub:t:*:audit.created`;
+  },
+  /** {env}:pubsub:t:{tenantId}:notification.created */
+  notificationCreated: ({ env, tenantId, clusterTenantTag = true }) =>
+    buildChannel({ env, scope: "t", tenantId, topic: "notification.created", clusterTenantTag }),
+  /** Pattern: {env}:pubsub:t:*:notification.created */
+  notificationCreatedPattern: ({ env }) => {
+    const effectiveEnv = normalizeEnv(env);
+    return `${effectiveEnv}:pubsub:t:*:notification.created`;
+  },
   wsBroadcast: ({ env, tenantId, clusterTenantTag = true }) =>
     buildChannel({ env, scope: "t", tenantId, topic: "ws.broadcast", clusterTenantTag }),
   rbacChanged: ({ env, tenantId, clusterTenantTag = true }) =>

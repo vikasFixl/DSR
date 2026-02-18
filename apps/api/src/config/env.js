@@ -26,6 +26,7 @@ const sameSiteFromEnv = z.preprocess((value) => {
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
+  WS_PORT: z.coerce.number().int().positive().default(4001),
   APP_NAME: z.string().min(1).default("dsr-api"),
   APP_PUBLIC_URL: z.string().url().default("http://localhost:3000"),
   LOG_LEVEL: z
@@ -110,6 +111,7 @@ export const config = Object.freeze({
     env: env.NODE_ENV,
     isProduction: env.NODE_ENV === "production",
     port: env.PORT,
+    wsPort: env.WS_PORT,
     logLevel: env.LOG_LEVEL,
     publicUrl: env.APP_PUBLIC_URL
   },

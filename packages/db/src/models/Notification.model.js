@@ -14,6 +14,8 @@ const schema = new mongoose.Schema(
     body: { type: String, default: null },
     link: { type: String, default: null },
     readAt: { type: Date, default: null },
+    priority: { type: String, enum: ['low','normal','high','critical'], default: 'normal', index: true },
+
     payload: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { strict: true, minimize: false, timestamps: true, optimisticConcurrency: true }
@@ -22,7 +24,9 @@ const schema = new mongoose.Schema(
 schema.plugin(toJSONPlugin);
 schema.plugin(tenantPlugin);
 
+/** Optimized indexes for tenant isolation, user queries, unread count, and priority filtering. */
 schema.index({ tenantId: 1, userId: 1, readAt: 1 });
 schema.index({ tenantId: 1, userId: 1, createdAt: -1 });
+schema.index({ tenantId: 1, userId: 1, readAt: 1, priority: -1 });
 
 export default mongoose.model('Notification', schema);
