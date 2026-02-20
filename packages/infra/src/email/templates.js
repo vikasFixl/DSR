@@ -100,6 +100,17 @@ export const templates = {
       </p>
       <p>If this request was not from you, please ignore this email.</p>
     </div>
+  `,
+
+  tenantInvite: (inviteeName, inviterName, tenantName, acceptLink, expiresInDays) => `
+    <div style="font-family: Arial, sans-serif; line-height:1.5">
+      <h2>Hello ${inviteeName || "User"},</h2>
+      <p><strong>${inviterName || "A team member"}</strong> has invited you to join the workspace <strong>${tenantName}</strong>.</p>
+      <p>
+        <a href="${acceptLink}" style="padding: 10px 15px; background: #007bff; color: white; text-decoration: none;">Accept invitation</a>
+      </p>
+      <p>This invitation expires in ${expiresInDays} days. If you did not expect this invite, you can ignore this email.</p>
+    </div>
   `
 };
 
@@ -111,5 +122,6 @@ export const templateSubjects = {
   commissionPending: "Commission Payout Pending",
   adPurchaseConfirmation: "Ad Purchase Confirmation",
   forgotPasswordLink: "Reset Your Password",
-  emailVerification: "Verify Your Email"
+  emailVerification: "Verify Your Email",
+  tenantInvite: "You're invited to join a workspace"
 };

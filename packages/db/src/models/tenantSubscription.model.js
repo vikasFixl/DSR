@@ -13,15 +13,17 @@ const schema = new mongoose.Schema(
   {
     stripeSubscriptionId: {
       type: String,
-      required: true,
-      unique: true,
+      required: false,
+      default: null,
       trim: true,
-      index: true,
+      sparse: true,
+      unique: true,
     },
 
     stripeCustomerId: {
       type: String,
-      required: true,
+      required: false,
+      default: null,
       trim: true,
       index: true,
     },

@@ -90,6 +90,26 @@ export const enqueueVerifyEmailOtp = async ({ to, name, otp, purpose = "email ve
   );
 };
 
+/**
+ * Enqueues tenant invite email.
+ * @param {{ to: string, inviteeName?: string, inviterName: string, tenantName: string, acceptLink: string, expiresInDays?: number }} params
+ * @param {object} opts
+ * @returns {Promise<import("bullmq").Job>}
+ */
+export const enqueueTenantInviteEmail = async (
+  { to, inviteeName, inviterName, tenantName, acceptLink, expiresInDays = 7 },
+  opts = {}
+) => {
+  return enqueueTemplatedEmail(
+    {
+      to,
+      templateName: "tenantInvite",
+      templateArgs: [inviteeName || "User", inviterName, tenantName, acceptLink, expiresInDays]
+    },
+    opts
+  );
+};
+
 export const closeEmailQueue = async () => {
   if (emailQueue) {
     await emailQueue.close();

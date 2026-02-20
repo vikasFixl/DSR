@@ -1,6 +1,5 @@
 import * as authService from "#api/modules/auth/auth.service.js";
 import { setAccessCookie, setRefreshCookie, clearAuthCookies, getRefreshTokenFromCookies } from "#api/modules/auth/auth.cookies.js";
-
 /**
  * POST /auth/signup - create account, send verification email.
  */
@@ -48,9 +47,10 @@ export async function login(req, res, next) {
     const { body } = req.validated;
     const meta = { ip: req.ip, userAgent: req.get("user-agent") };
     const { user, accessToken, refreshToken } = await authService.login(body, meta);
+   
     setAccessCookie(res, accessToken);
     setRefreshCookie(res, refreshToken);
-    return res.status(200).json({ user });
+    return res.status(200).json({ user,accessToken,refreshToken});
   } catch (error) {
     return next(error);
   }

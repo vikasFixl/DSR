@@ -12,6 +12,8 @@ const schema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     status: { type: String, enum: ['active', 'suspended', 'trial'], default: 'active' },
+    planId: { type: mongoose.Schema.Types.ObjectId, ref: 'PlanCatalog', default: null, index: true },
+    stripeCustomerId: { type: String, default: null, trim: true, index: true },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { strict: true, minimize: false, timestamps: true, optimisticConcurrency: true }

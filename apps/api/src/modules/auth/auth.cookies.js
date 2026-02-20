@@ -8,7 +8,7 @@ const REFRESH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const COOKIE_OPTS_BASE = {
   httpOnly: true,
-  sameSite: "strict",
+  sameSite: "None",
   secure: config.app.isProduction
 };
 

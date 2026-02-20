@@ -250,6 +250,18 @@ export const usageMonthKey = ({ env, tenantId, yearMonth, clusterTenantTag = tru
     clusterTenantTag
   });
 
+/** Invite token lookup: {env}:t:{tenantId}:invite:{tokenId} */
+export const inviteTokenKey = ({ env, tenantId, tokenId, clusterTenantTag = true }) =>
+  buildKey({
+    env,
+    scope: "t",
+    tenantId,
+    module: "invite",
+    type: "token",
+    id: tokenId,
+    clusterTenantTag
+  });
+
 export const jobProgressKey = ({ env, tenantId, jobId, clusterTenantTag = true }) =>
   buildKey({
     env,
@@ -435,6 +447,7 @@ export const cacheKeys = Object.freeze({
   tenantConfigKey,
   tenantFeaturesKey,
   usageMonthKey,
+  inviteTokenKey,
   jobProgressKey,
   distributedLockKey,
   idempotencyKey,

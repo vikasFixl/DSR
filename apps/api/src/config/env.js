@@ -61,7 +61,9 @@ const envSchema = z.object({
   SMTP_SECURE: booleanFromEnv.default(false),
   SMTP_USER: z.string().min(1),
   SMTP_PASS: z.string().min(1),
-  SMTP_FROM: z.string().min(1)
+  SMTP_FROM: z.string().min(1),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional().default("")
 });
 
 const rawEnv = {
@@ -93,7 +95,10 @@ const rawEnv = {
   SMTP_PASS: process.env.SMTP_PASS ?? process.env.smtp_pass,
   SMTP_FROM: process.env.SMTP_FROM ?? process.env.smtp_from,
   QUEUE_CONCURRENCY: process.env.QUEUE_CONCURRENCY ?? process.env.queue_concurrency,
-  APP_PUBLIC_URL: process.env.APP_PUBLIC_URL ?? process.env.app_public_url
+  APP_PUBLIC_URL: process.env.APP_PUBLIC_URL ?? process.env.app_public_url,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? process.env.stripe_secret_key,
+  STRIPE_WEBHOOK_SECRET:
+    process.env.STRIPE_WEBHOOK_SECRET ?? process.env.stripe_webhook_secret ?? ""
 };
 
 const parsed = envSchema.safeParse(rawEnv);
@@ -149,5 +154,9 @@ export const config = Object.freeze({
     user: env.SMTP_USER,
     pass: env.SMTP_PASS,
     from: env.SMTP_FROM
+  },
+  stripe: {
+    secretKey: env.STRIPE_SECRET_KEY ?? "",
+    webhookSecret: env.STRIPE_WEBHOOK_SECRET ?? ""
   }
 });

@@ -6,6 +6,7 @@ import { config } from "#api/config/env.js";
 import { requestLoggerMiddleware } from "#api/utils/logger.js";
 import { createContainer } from "#api/app/container.js";
 import { createRoutes } from "#api/routes/index.js";
+import { createBillingWebhookRoutes } from "#api/modules/billing/billing.webhook.routes.js";
 import { notFoundMiddleware } from "#api/middlewares/notFound.middleware.js";
 import { errorMiddleware } from "#api/middlewares/error.middleware.js";
 
@@ -22,6 +23,7 @@ export const buildApp = () => {
     })
   );
   app.use(cookieParser());
+  app.use("/billing/webhook", createBillingWebhookRoutes());
   app.use(express.json());
 
   app.use(createRoutes(container));

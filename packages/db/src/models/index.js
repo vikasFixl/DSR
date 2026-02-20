@@ -27,3 +27,8 @@ export { default as Notification } from './Notification.model.js';
 export { default as NotificationPreference } from './NotificationPreference.model.js';
 export { default as PerformanceSnapshot } from './PerformanceSnapshot.model.js';
 export { default as AuditLog } from './AuditLog.model.js';
+export { default as PlanCatalog } from './PlanCatalog.model.js';
+export { default as Subscription } from './tenantSubscription.model.js';
+export { default as TenantMembership } from "./TenantMembershipSchema.model.js";
+export { default as TenantInvite } from "./TenantInvite.model.js";
+export { default as TenantUsage } from "./TenantUsage.model.js";

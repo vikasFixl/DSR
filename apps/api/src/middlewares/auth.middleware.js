@@ -10,13 +10,32 @@ import { verifyAccessToken } from "#api/modules/auth/auth.tokens.js";
 export const authenticate = () => {
   return async (req, _res, next) => {
     try {
-      const accessToken = getAccessTokenFromCookies(req);
+      let accessToken = null;
+
+      // 1️⃣ First check cookies
+      if (req.cookies && req.cookies.accessToken) {
+        accessToken = req.cookies.accessToken;
+      }
+
+      // 2️⃣ If not in cookies, check Authorization header
+      if (!accessToken && req.headers.authorization) {
+        const authHeader = req.headers.authorization;
+
+        if (authHeader.startsWith("Bearer ")) {
+          accessToken = authHeader.split(" ")[1];
+        }
+      }
+
       if (!accessToken) {
         throw new ApiError(401, "Unauthorized");
       }
 
       const payload = verifyAccessToken(accessToken);
-      req.user = { id: String(payload.sub) };
+
+      req.user = {
+        id: String(payload.sub),
+      };
+
       return next();
     } catch (error) {
       logger.warn({ err: error }, "Authentication failed");
@@ -24,4 +43,3 @@ export const authenticate = () => {
     }
   };
 };
-
