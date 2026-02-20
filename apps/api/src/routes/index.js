@@ -6,6 +6,7 @@ import { createAuditRoutes } from "#api/modules/audit/audit.routes.js";
 import { createNotificationRoutes } from "#api/modules/notification/notification.routes.js";
 import { createBillingRoutes } from "#api/modules/billing/billing.routes.js";
 import { createTenantRoutes } from "#api/modules/tenant/tenant.routes.js";
+import reportAIRoutes from "#api/modules/reporting/report.ai.routes.js";
 
 export const createRoutes = ({ controllers }) => {
   const router = Router();
@@ -23,6 +24,7 @@ export const createRoutes = ({ controllers }) => {
       membershipController: controllers.membershipController,
     })
   );
+  router.use("/ai/report", reportAIRoutes);
 
   return router;
 };

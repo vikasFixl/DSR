@@ -52,6 +52,8 @@ const schema = new mongoose.Schema(
       maxStorageGB: { type: Number, default: 1 },
       maxApiCallsPerMonth: { type: Number, default: 5000 },
       auditLogRetentionDays: { type: Number, default: 7 },
+      maxAITokensPerMonth: { type: Number, default: 10000 },
+      maxAIReportsPerMonth: { type: Number, default: 30 },
     },
 
     metadata: {

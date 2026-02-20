@@ -12,6 +12,8 @@
     "dev": "node --watch apps/api/src/app/server.js",
     "start": "node apps/api/src/app/server.js",
     "worker:email": "node apps/workers/email.worker.js",
+    "worker:report": "node apps/workers/report.worker.js",
+    "worker:export": "node apps/workers/export.worker.js",
     "ws": "node apps/ws/server.js"
   },
   "dependencies": {
@@ -25,6 +27,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.10.1",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.10.0",
     "redis": "^4.7.0",
     "socket.io": "^4.8.3",

@@ -6,6 +6,7 @@ import { logger } from "#api/utils/logger.js";
 import { connectMongo, disconnectMongo } from "#db/connection/mongoose.js";
 import { connectRedis, disconnectRedis, getRedisClient } from "#infra/cache/redis.js";
 import { createEmailQueue, closeEmailQueue } from "#infra/queue/email.queue.js";
+import { initializeReportSchedulers } from "#api/modules/reporting/report.scheduler.js";
 
 let server;
 let shuttingDown = false;
@@ -37,6 +38,9 @@ const startServer = async () => {
     redisClient: getRedisClient(),
     connection: redisConfig.bullmqConnection
   });
+
+  // Initialize AI report schedulers
+  initializeReportSchedulers();
 
   server = app.listen(config.app.port, () => {
     logger.info(
