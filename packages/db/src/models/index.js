@@ -32,3 +32,7 @@ export { default as Subscription } from './tenantSubscription.model.js';
 export { default as TenantMembership } from "./TenantMembershipSchema.model.js";
 export { default as TenantInvite } from "./TenantInvite.model.js";
 export { default as TenantUsage } from "./TenantUsage.model.js";
+export { default as AIExecutionLog } from "./AIExecutionLog.model.js";
+export { default as AIUsage } from "./AIUsage.model.js";
+export { default as AIInsight } from "./AIInsight.model.js";
+export { default as AIRecommendation } from "./AIRecommendation.model.js";
