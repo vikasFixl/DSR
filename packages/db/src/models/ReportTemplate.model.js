@@ -1,28 +1,103 @@
-/**
- * ReportTemplate model. Reusable report definitions (name, type, config) for generating reports.
- */
+import mongoose from "mongoose";
 
-import mongoose from 'mongoose';
-import { toJSONPlugin } from '../plugins/toJSON.plugin.js';
-import { tenantPlugin } from '../plugins/tenant.plugin.js';
-import { auditChainPlugin } from '../plugins/auditChain.plugin.js';
+// apps/api/src/models/ReportTemplate.js
 
-const schema = new mongoose.Schema(
+
+const ReportTemplateSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    type: { type: String, required: true, trim: true },
-    config: { type: mongoose.Schema.Types.Mixed, default: {} },
-    status: { type: String, enum: ['draft', 'active', 'archived'], default: 'draft' },
-    metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    tenantId: { type: mongoose.Types.ObjectId, required: true, index: true },
+
+    // Identity
+    code: { type: String, required: true }, // e.g. "DSR_STANDARD", "WSR_EXEC", "QTR_FINANCE"
+    name: { type: String, required: true }, // e.g. "Daily Status Report"
+    description: { type: String },
+
+    // Type & scope
+    reportType: {
+      type: String,
+      required: true,
+      enum: ["DSR", "WSR", "MONTHLY", "QUARTERLY", "YEARLY", "CUSTOM"],
+      index: true,
+    },
+
+    // Supports all departments: can be ALL or a list
+    departmentScope: {
+      type: String,
+      enum: ["ALL", "SELECTED"],
+      default: "ALL",
+    },
+    departmentIds: [{ type: mongoose.Types.ObjectId }], // used if SELECTED
+
+    // Optional: further scoping (if needed)
+    teamIds: [{ type: mongoose.Types.ObjectId }],
+    userIds: [{ type: mongoose.Types.ObjectId }],
+
+    // Data definition (flexible)
+    // Each block defines what data to query and how to present it
+    sections: [
+      {
+        key: { type: String, required: true }, // "summary", "tasks", "risks"
+        title: { type: String, required: true },
+        enabled: { type: Boolean, default: true },
+
+        // Data source config (kept generic so you can add modules easily)
+        // Example: module=tasks, collection=Task, filters, groupBy, metrics
+        source: {
+          module: { type: String, required: true }, // "tasks", "audit", "integrations"
+          entity: { type: String, required: true }, // "Task", "AuditLog"
+          baseFilters: { type: Object, default: {} }, // Mongo filter object
+          groupBy: { type: Object }, // grouping rules
+          metrics: [{ type: Object }], // aggregation metrics
+          sort: { type: Object },
+          limit: { type: Number },
+        },
+
+        // Presentation rules (for PDF/HTML/table)
+        view: {
+          type: {
+            type: String,
+            enum: ["TABLE", "CHART", "TEXT", "KPI", "LIST"],
+            default: "TABLE",
+          },
+          columns: [{ type: Object }], // { key, label, format }
+          chart: { type: Object }, // chart config
+          template: { type: String }, // optional html/handlebars template key
+        },
+      },
+    ],
+
+    // Output and delivery defaults
+    outputDefaults: {
+      formats: {
+        type: [String],
+        default: ["PDF"],
+        enum: ["PDF", "XLSX", "CSV", "JSON", "HTML"],
+      },
+      timezone: { type: String, default: "Asia/Kolkata" },
+      locale: { type: String, default: "en-IN" },
+      currency: { type: String, default: "INR" },
+      includeBranding: { type: Boolean, default: true },
+    },
+
+    // Access control (permission tags)
+    access: {
+      minPermission: { type: String, default: "reports.view" }, // RBAC permission string
+      allowedRoleIds: [{ type: mongoose.Types.ObjectId }], // optional allowlist
+      allowedUserIds: [{ type: mongoose.Types.ObjectId }],
+    },
+
+    // Status
+    status: { type: String, enum: ["active", "disabled"], default: "active", index: true },
+
+    // Audit fields
+    createdBy: { type: mongoose.Types.ObjectId, required: true },
+    updatedBy: { type: mongoose.Types.ObjectId },
   },
-  { strict: true, minimize: false, timestamps: true, optimisticConcurrency: true }
+  { timestamps: true }
 );
 
-schema.plugin(toJSONPlugin);
-schema.plugin(tenantPlugin);
-schema.plugin(auditChainPlugin);
+// Unique per tenant
+ReportTemplateSchema.index({ tenantId: 1, code: 1 }, { unique: true });
+ReportTemplateSchema.index({ tenantId: 1, reportType: 1, status: 1 });
 
-schema.index({ tenantId: 1, type: 1 });
-schema.index({ tenantId: 1, status: 1 });
-
-export default mongoose.model('ReportTemplate', schema);
+export default mongoose.model("ReportTemplate", ReportTemplateSchema);

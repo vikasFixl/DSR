@@ -1,35 +1,36 @@
 /**
- * Report Queue Service. Handles BullMQ job enqueueing for heavy AI report processing.
+ * Report Queue Service. Handles BullMQ job enqueueing for report generation and export.
  */
 
 import { Queue } from "bullmq";
-import Redis from "redis";
 import { redisConfig } from "#api/config/redis.config.js";
-import {logger} from "#api/utils/logger.js";
+import { logger } from "#api/utils/logger.js";
 
-const redisConnection = Redis.createClient(redisConfig);
-
-// Create queues
-export const reportQueue = new Queue("ai-report-generation", {
-  connection: redisConnection
+// Create queues with BullMQ connection config
+export const reportQueue = new Queue("reports.generate", {
+  connection: redisConfig.bullmqConnection
 });
 
-export const exportQueue = new Queue("ai-report-export", {
-  connection: redisConnection
+export const exportQueue = new Queue("reports.export", {
+  connection: redisConfig.bullmqConnection
 });
 
 /**
  * Enqueue report generation job
  */
-export async function enqueueReportJob({ type, tenantId, userId, params }) {
+export async function enqueueReportJob({ runId, tenantId, templateId, scheduleId, period, scope, outputFormats }) {
   const jobData = {
-    type,
-    tenantId: tenantId.toString(),
-    userId: userId.toString(),
-    params
+    runId,
+    tenantId,
+    templateId,
+    scheduleId,
+    period,
+    scope,
+    outputFormats
   };
 
-  const job = await reportQueue.add(`generate-${type.toLowerCase()}`, jobData, {
+  const job = await reportQueue.add("generate-report", jobData, {
+    jobId: runId,
     attempts: 3,
     backoff: {
       type: "exponential",
@@ -39,7 +40,12 @@ export async function enqueueReportJob({ type, tenantId, userId, params }) {
     removeOnFail: 50
   });
 
-  logger.info("Report job enqueued", { jobId: job.id, type, tenantId });
+  logger.info({
+    jobId: job.id,
+    runId,
+    tenantId,
+    templateId
+  }, "Report generation job enqueued");
 
   return job.id;
 }
@@ -52,7 +58,7 @@ export async function enqueueExportJob({ reportId, format, tenantId, userId }) {
     reportId: reportId.toString(),
     format,
     tenantId: tenantId.toString(),
-    userId: userId.toString()
+    userId: userId ? userId.toString() : null
   };
 
   const job = await exportQueue.add(`export-${format.toLowerCase()}`, jobData, {
@@ -65,7 +71,7 @@ export async function enqueueExportJob({ reportId, format, tenantId, userId }) {
     removeOnFail: 20
   });
 
-  logger.info("Export job enqueued", { jobId: job.id, reportId, format });
+  logger.info({ jobId: job.id, reportId, format }, "Export job enqueued");
 
   return job.id;
 }

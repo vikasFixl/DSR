@@ -7,6 +7,7 @@ import { createNotificationRoutes } from "#api/modules/notification/notification
 import { createBillingRoutes } from "#api/modules/billing/billing.routes.js";
 import { createTenantRoutes } from "#api/modules/tenant/tenant.routes.js";
 import reportAIRoutes from "#api/modules/reporting/report.ai.routes.js";
+import reportingRoutes from "#api/modules/reporting/reporting.routes.js";
 
 export const createRoutes = ({ controllers }) => {
   const router = Router();
@@ -25,6 +26,7 @@ export const createRoutes = ({ controllers }) => {
     })
   );
   router.use("/ai/report", reportAIRoutes);
+  router.use("/reports", reportingRoutes);
 
   return router;
 };
