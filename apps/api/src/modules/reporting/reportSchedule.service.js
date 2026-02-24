@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ReportSchedule, ReportTemplate } from "#db/models/index.js";
+import {  ReportTemplate } from "#db/models/index.js";
 import { ApiError } from "#api/utils/ApiError.js";
 import { logger } from "#api/utils/logger.js";
 import { log as auditLog } from "#api/modules/audit/audit.service.js";

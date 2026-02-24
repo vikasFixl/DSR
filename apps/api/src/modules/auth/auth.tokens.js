@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { config } from "#api/config/env.js";
 import { jwtConfig } from "#api/config/jwt.config.js";
 import { ApiError } from "#api/utils/ApiError.js";
-
+import { logger } from "#api/utils/logger.js";
 const ACCESS_SECRET = config.jwt.accessSecret;
 const REFRESH_SECRET = config.jwt.refreshSecret;
 const ACCESS_EXPIRY = config.jwt.accessExpiry;
@@ -39,6 +39,7 @@ export function compareHashedToken(plain, hashed) {
  * @returns {string} JWT
  */
 export function signAccessToken(payload) {
+  logger.info(ACCESS_EXPIRY,ACCESS_SECRET,REFRESH_EXPIRY,REFRESH_SECRET)
   return jwt.sign(
     {
       sub: payload.userId,

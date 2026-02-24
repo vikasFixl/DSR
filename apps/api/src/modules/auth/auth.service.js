@@ -1,10 +1,12 @@
-import crypto from "node:crypto";
+import crypto, { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { User, UserSession } from "#db/models/index.js";
 import { ApiError } from "#api/utils/ApiError.js";
 import * as auditService from "#api/modules/audit/audit.service.js";
 import { logger } from "#api/utils/logger.js";
 import { config } from "#api/config/env.js";
+import { authRedisKeys } from "#api/modules/auth/auth.redis.js";
+import { getRedisClient } from "#infra/cache/redis.js";
 import { enqueueVerifyEmailOtp, enqueueForgotPasswordEmail } from "#infra/queue/email.queue.js";
 import {
   setVerifyEmailOtp,
@@ -39,6 +41,7 @@ const OTP_SEND_RATE_LIMIT_COUNT = 5;
 const OTP_SEND_RATE_LIMIT_TTL_SEC = 10 * 60; // 10 min
 const OTP_ATTEMPTS_MAX = 5;
 const REFRESH_TTL_DAYS = 7;
+const ACCESS_TOKEN_TTL_SEC=15
 
 /**
  * Normalizes email to lowercase and trims.
@@ -79,6 +82,7 @@ async function verifyPassword(password, hash) {
  * @param {{ email: string, password: string, name: string }} input
  * @returns {Promise<{ message: string }>}
  */
+
 export async function signup(input) {
   const email = normalizeEmail(input.email);
   const existing = await User.findOne({ email }).lean();
@@ -179,80 +183,137 @@ export async function resendVerification(input) {
   return { message: "If an account exists, a new verification code was sent." };
 }
 
-/**
- * Login: validate credentials, check status/emailVerified/lock, create/update session, set cookies.
- * @param {{ email: string, password: string, deviceId?: string }} input
- * @param {{ ip: string, userAgent: string }} meta
- * @returns {Promise<{ user: object }>}
- */
+
 export async function login(input, meta) {
+  const redis= await getRedisClient();
   const ip = meta?.ip ?? "unknown";
-  const count = await incrementLoginRateLimit(ip, LOGIN_RATE_LIMIT_TTL_SEC);
-  if (count > LOGIN_RATE_LIMIT_COUNT) {
-    logger.warn({ ip }, "Login rate limit exceeded");
-    throw ApiError.badRequest("Invalid credentials");
-  }
+  const userAgent = meta?.userAgent ?? "unknown";
+  const now = new Date();
+  const deviceId = crypto
+  .createHash("sha256")
+  .update((meta?.userAgent ?? "") + (ip ?? "") + Date.now())
+  .digest("hex");
 
   const email = normalizeEmail(input.email);
   const user = await User.findOne({ email }).lean();
+
+  // 🔒 Always generic error
   if (!user) {
     throw ApiError.badRequest("Invalid credentials");
   }
 
-  if (user.status !== "active") {
-    throw ApiError.badRequest("Invalid credentials");
-  }
-  if (!user.emailVerified) {
-    throw ApiError.badRequest("Invalid credentials");
-  }
-  const passwordHash = user.auth?.passwordHash ?? user.passwordHash;
-  if (!passwordHash) {
-    throw ApiError.badRequest("Invalid credentials");
-  }
-  const valid = await verifyPassword(input.password, passwordHash);
-  if (!valid) {
-    const newAttempts = (user.failedLoginAttempts ?? 0) + 1;
-    const update = { $inc: { failedLoginAttempts: 1 } };
-    if (newAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
-      update.$set = { lockedUntil: new Date(Date.now() + LOCK_DURATION_MS) };
-    }
-    await User.updateOne({ _id: user._id }, update).then(() => {}).catch(() => {});
-    await auditService
-      .log({
-        action: "AUTH.FAILED_LOGIN",
-        resourceType: "User",
-        resourceId: user._id,
-        userId: user._id,
-        tenantId: null,
-        ip,
-        userAgent: meta?.userAgent ?? null,
-        metadata: { email }
-      })
-      .catch((err) => logger.warn({ err }, "Audit log failed"));
+  if (user.status !== "active" || !user.emailVerified) {
     throw ApiError.badRequest("Invalid credentials");
   }
 
-  const now = new Date();
+  // 🔒 LOCK CHECK BEFORE PASSWORD VERIFY
   if (user.lockedUntil && new Date(user.lockedUntil) > now) {
     throw ApiError.badRequest("Invalid credentials");
   }
 
+  const passwordHash = user.auth?.passwordHash ?? user.passwordHash;
+  if (!passwordHash) {
+    throw ApiError.badRequest("Invalid credentials");
+  }
+
+  const valid = await verifyPassword(input.password, passwordHash);
+
+  if (!valid) {
+    const newAttempts = (user.failedLoginAttempts ?? 0) + 1;
+    const update = { $inc: { failedLoginAttempts: 1 } };
+
+    if (newAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+      update.$set = { lockedUntil: new Date(Date.now() + LOCK_DURATION_MS) };
+    }
+
+    await User.updateOne({ _id: user._id }, update).catch(() => {});
+    throw ApiError.badRequest("Invalid credentials");
+  }
+
+  // 🔥 SUCCESS PATH
+
+  const sessionId = crypto.randomUUID();
   const refreshId = crypto.randomUUID();
   const jti = crypto.randomUUID();
-  const tokenId = crypto.randomUUID();
-  const refreshToken = signRefreshToken({ userId: String(user._id), refreshId });
-  const refreshHash = hashToken(refreshToken);
-  const accessToken = signAccessToken({ userId: String(user._id), tokenId, jti });
 
-  const expiresAt = new Date(Date.now() + REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000);
-  await setRefreshRecord(refreshId, {
-    userId: String(user._id),
-    tokenHash: refreshHash,
-    sessionTokenId: tokenId,
-    deviceId: input.deviceId ?? tokenId
+  const accessToken = signAccessToken({
+    sub: String(user._id),
+    sessionId,
+    jti
   });
-  await addUserRefreshId(String(user._id), refreshId);
 
+  const refreshToken = signRefreshToken({
+    sub: String(user._id),
+    refreshId,
+    sessionId
+  });
+
+  const refreshHash = hashToken(refreshToken);
+
+  const accessTTL = ACCESS_TOKEN_TTL_SEC *60 // 15 min default if not set in config
+  const refreshTTL = REFRESH_TTL_DAYS * 24 * 60 * 60;
+
+
+
+const expiresAt = new Date(Date.now() + refreshTTL * 1000);
+
+// 1️⃣ Check existing session
+const existingSession = await UserSession.findOne({ sessionId }).lean();
+
+if (existingSession) {
+  // Update existing session
+  await UserSession.updateOne(
+    { sessionId },
+    {
+      $set: {
+        refreshTokenHash: refreshHash,
+        ip,
+        userAgent,
+        expiresAt,
+        revokedAt: null
+      }
+    }
+  );
+} else {
+  // Create new session
+  await UserSession.create({
+    sessionId,
+    userId: user._id,
+    refreshTokenHash: refreshHash,
+    deviceId,
+    userAgent,
+    ip,
+    expiresAt,
+    revokedAt: null
+  });
+}
+
+const fingerprint = userAgent + ip
+
+// Runtime session
+await redis.set(
+  authRedisKeys.session(sessionId),
+  JSON.stringify({
+    userId: String(user._id),
+    fingerprint
+  }),
+  "EX",
+  accessTTL
+);
+
+// Refresh record
+await redis.set(
+  authRedisKeys.refresh(refreshId),
+  JSON.stringify({
+    userId: String(user._id),
+    sessionId,
+    tokenHash: refreshHash
+  }),
+  "EX",
+  refreshTTL
+);
+
+  // 🔹 Reset failure state
   await User.updateOne(
     { _id: user._id },
     {
@@ -264,65 +325,16 @@ export async function login(input, meta) {
     }
   );
 
-  const deviceId = input.deviceId ?? tokenId;
-  const existingSession = await UserSession.findOne({
-    userId: user._id,
-    deviceId
-  }).lean();
-
-  if (existingSession) {
-    await UserSession.updateOne(
-      { _id: existingSession._id },
-      {
-        $set: {
-          refreshTokenHash: refreshHash,
-          expiresAt,
-          userAgent: meta?.userAgent ?? null,
-          ip
-        }
-      }
-    );
-  } else {
-    await UserSession.create({
-      userId: user._id,
-      tokenId,
-      refreshTokenHash: refreshHash,
-      deviceId,
-      userAgent: meta?.userAgent ?? null,
-      ip,
-      expiresAt
-    });
-  }
-
-  await auditService
-    .log({
-      action: "AUTH.LOGIN",
-      resourceType: "UserSession",
-      resourceId: null,
-      userId: user._id,
-      tenantId: null,
-      ip,
-      userAgent: meta?.userAgent ?? null,
-      metadata: { email }
-    })
-    .catch((err) => logger.warn({ err }, "Audit log failed"));
-
-  const profile = {
-    id: user._id,
-    email: user.email,
-    name: user.name,
-    avatarUrl: user.avatarUrl ?? null,
-    emailVerified: user.emailVerified,
-    status: user.status
-  };
-
   return {
-    user: profile,
+    user: {
+      id: user._id,
+      email: user.email,
+      name: user.name
+    },
     accessToken,
     refreshToken
   };
 }
-
 /**
  * Refresh: validate refresh cookie, rotate token, update session, return new tokens (caller sets cookies).
  * @param {string} refreshTokenFromCookie

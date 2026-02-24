@@ -43,7 +43,9 @@ export const authRedisKeys = Object.freeze({
   userRefreshSet: (userId) => buildGlobalKey("auth", "user_refresh_set", userId),
   passwordReset: (token) => buildGlobalKey("auth", "pwdreset", token),
   rateLoginIp: (ip) => buildGlobalKey("rate", "ip", `${ip}:login`),
-  rateOtpSend: (email) => buildGlobalKey("rate", "otp_send", email)
+  rateOtpSend: (email) => buildGlobalKey("rate", "otp_send", email),
+  session: (sessionId) => buildGlobalKey("auth", "session", sessionId),
+  sessionRevoked: (sessionId) => buildGlobalKey("auth", "session_revoked", sessionId)
 });
 
 /**
